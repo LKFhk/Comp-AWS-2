@@ -1,0 +1,45 @@
+{
+  "summary": {
+    "total_tests": 3,
+    "total_requests": 120,
+    "total_successful": 112,
+    "total_failed": 8,
+    "overall_error_rate": 6.666666666666667,
+    "average_throughput": 3.649456707822811,
+    "average_response_time": 4.971472062230393,
+    "max_response_time": 5.990209341049194
+  },
+  "test_results": [
+    {
+      "test_name": "concurrent_users_10_requests_2",
+      "concurrent_users": 10,
+      "throughput": 1.2960796062749809,
+      "avg_response_time": 5.181825304031372,
+      "error_rate": 0.0,
+      "duration": 15.431150913238525
+    },
+    {
+      "test_name": "concurrent_users_25_requests_2",
+      "concurrent_users": 25,
+      "throughput": 3.3513016881841557,
+      "avg_response_time": 4.8626622994740805,
+      "error_rate": 10.0,
+      "duration": 14.919575929641724
+    },
+    {
+      "test_name": "concurrent_users_50_requests_1",
+      "concurrent_users": 50,
+      "throughput": 6.300988829009296,
+      "avg_response_time": 4.8699285831857235,
+      "error_rate": 6.0,
+      "duration": 7.935262441635132
+    }
+  ],
+  "performance_analysis": {
+    "meets_sla": false,
+    "scalability_rating": "fair",
+    "recommendations": [
+      "High error rate detected - investigate error handling and system stability"
+    ]
+  }
+}

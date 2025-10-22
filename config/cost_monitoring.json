@@ -1,0 +1,21 @@
+{
+  "monitoring": {
+    "enabled": true,
+    "alert_thresholds": {
+      "development": 100,
+      "production": 1000
+    },
+    "optimization_schedule": "0 6 * * *",
+    "cost_allocation_tags": [
+      "Environment",
+      "Project",
+      "Component"
+    ]
+  },
+  "optimization": {
+    "auto_scaling_enabled": true,
+    "spot_instances_enabled": false,
+    "unused_resource_cleanup": true,
+    "cost_anomaly_detection": true
+  }
+}

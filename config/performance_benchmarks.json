@@ -1,0 +1,24 @@
+{
+  "response_times": {
+    "agent_response_max_seconds": 5,
+    "workflow_completion_max_seconds": 7200,
+    "api_response_max_milliseconds": 1000
+  },
+  "throughput": {
+    "concurrent_requests_min": 50,
+    "transactions_per_second_min": 100,
+    "fraud_detection_per_minute_min": 1000
+  },
+  "availability": {
+    "uptime_percentage_min": 99.9,
+    "recovery_time_max_minutes": 5,
+    "backup_frequency_hours": 24
+  },
+  "scalability": {
+    "auto_scaling_enabled": true,
+    "min_instances": 3,
+    "max_instances": 50,
+    "scale_out_threshold_cpu": 70,
+    "scale_in_threshold_cpu": 30
+  }
+}

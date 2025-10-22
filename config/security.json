@@ -1,0 +1,22 @@
+{
+  "encryption": {
+    "at_rest": true,
+    "in_transit": true,
+    "kms_key_rotation": true
+  },
+  "access_control": {
+    "iam_roles": true,
+    "least_privilege": true,
+    "mfa_required": true
+  },
+  "monitoring": {
+    "cloudtrail_enabled": true,
+    "vpc_flow_logs": true,
+    "security_hub": true
+  },
+  "compliance": {
+    "gdpr_compliant": true,
+    "sox_compliant": true,
+    "pci_dss_compliant": true
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "public_sources": {
+    "sec_edgar": {
+      "base_url": "https://www.sec.gov/edgar/",
+      "rate_limit": "10/second",
+      "cache_ttl": 3600
+    },
+    "fred": {
+      "base_url": "https://api.stlouisfed.org/fred/",
+      "rate_limit": "120/minute",
+      "cache_ttl": 1800
+    },
+    "yahoo_finance": {
+      "base_url": "https://query1.finance.yahoo.com/",
+      "rate_limit": "2000/hour",
+      "cache_ttl": 300
+    }
+  }
+}

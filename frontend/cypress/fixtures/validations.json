@@ -1,0 +1,36 @@
+{
+  "validations": [
+    {
+      "id": "val-001",
+      "business_concept": "AI-powered project management tool",
+      "target_market": "Small businesses",
+      "status": "completed",
+      "created_at": "2024-01-15T10:30:00Z",
+      "completed_at": "2024-01-15T12:15:00Z",
+      "confidence_score": 0.85,
+      "overall_score": 78
+    },
+    {
+      "id": "val-002",
+      "business_concept": "Sustainable packaging solution",
+      "target_market": "E-commerce companies",
+      "status": "processing",
+      "created_at": "2024-01-16T09:00:00Z",
+      "confidence_score": null,
+      "overall_score": null
+    },
+    {
+      "id": "val-003",
+      "business_concept": "Remote team collaboration platform",
+      "target_market": "Enterprise companies",
+      "status": "completed",
+      "created_at": "2024-01-14T14:20:00Z",
+      "completed_at": "2024-01-14T16:45:00Z",
+      "confidence_score": 0.92,
+      "overall_score": 85
+    }
+  ],
+  "total": 3,
+  "page": 1,
+  "page_size": 20
+}

@@ -1,0 +1,162 @@
+# RiskIntel360 Platform Pre-commit Hooks Configuration
+# Enforces code quality, security, and testing standards
+
+repos:
+  # Code Formatting
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        language_version: python3.13
+        args: [--line-length=88]
+        files: ^(riskintel360|tests)/.*\.py$
+
+  # Import Sorting
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: [--profile=black, --line-length=88]
+        files: ^(riskintel360|tests)/.*\.py$
+
+  # Linting
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: [--max-line-length=88, --extend-ignore=E203,W503]
+        files: ^(riskintel360|tests)/.*\.py$
+        additional_dependencies:
+          - flake8-docstrings
+          - flake8-bugbear
+          - flake8-comprehensions
+
+  # Type Checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        args: [--strict, --ignore-missing-imports]
+        files: ^riskintel360/.*\.py$
+        additional_dependencies:
+          - types-requests
+          - types-redis
+          - types-PyYAML
+
+  # Security Scanning
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.6
+    hooks:
+      - id: bandit
+        args: [-r, riskintel360/, -f, json, -o, bandit-report.json]
+        files: ^riskintel360/.*\.py$
+
+  # Dependency Security Check
+  - repo: https://github.com/pyupio/safety
+    rev: 3.0.1
+    hooks:
+      - id: safety
+        args: [--json, --output, safety-report.json]
+
+  # General Code Quality
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^frontend/
+      - id: end-of-file-fixer
+        exclude: ^frontend/
+      - id: check-yaml
+        exclude: ^frontend/
+      - id: check-json
+        exclude: ^frontend/
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: debug-statements
+        files: ^(riskintel360|tests)/.*\.py$
+      - id: check-docstring-first
+        files: ^riskintel360/.*\.py$
+
+  # Python Docstring Quality
+  - repo: https://github.com/pycqa/pydocstyle
+    rev: 6.3.0
+    hooks:
+      - id: pydocstyle
+        args: [--convention=google]
+        files: ^riskintel360/.*\.py$
+
+  # Test Coverage Enforcement
+  - repo: local
+    hooks:
+      - id: pytest-coverage
+        name: pytest-coverage
+        entry: pytest
+        language: system
+        args: [tests/, --cov=riskintel360, --cov-fail-under=90, --cov-report=term-missing, -x]
+        files: ^(riskintel360|tests)/.*\.py$
+        pass_filenames: false
+        always_run: false
+        stages: [pre-push]
+
+  # AI-Powered Test Quality Check
+  - repo: local
+    hooks:
+      - id: ai-test-quality-check
+        name: ai-test-quality-check
+        entry: python
+        language: system
+        args: [tests/ai_test_generator_enhanced.py]
+        files: ^tests/.*\.py$
+        pass_filenames: false
+        always_run: false
+        stages: [pre-push]
+
+  # Performance Regression Check
+  - repo: local
+    hooks:
+      - id: performance-regression-check
+        name: performance-regression-check
+        entry: python
+        language: system
+        args: [scripts/check_performance_regression.py]
+        files: ^(riskintel360|tests)/.*\.py$
+        pass_filenames: false
+        always_run: false
+        stages: [pre-push]
+
+  # Frontend Hooks (if frontend directory exists)
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v8.56.0
+    hooks:
+      - id: eslint
+        files: ^frontend/src/.*\.(js|jsx|ts|tsx)$
+        additional_dependencies:
+          - eslint@8.56.0
+          - "@typescript-eslint/eslint-plugin@6.21.0"
+          - "@typescript-eslint/parser@6.21.0"
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        files: ^frontend/src/.*\.(js|jsx|ts|tsx|css|scss|json|md)$
+
+# Configuration
+default_stages: [commit]
+fail_fast: false
+minimum_pre_commit_version: 3.0.0
+
+# CI Configuration
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: [pytest-coverage, ai-test-quality-check, performance-regression-check]
+  submodules: false

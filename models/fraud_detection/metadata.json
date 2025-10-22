@@ -1,0 +1,10 @@
+{
+  "model_name": "fraud_detection_v1",
+  "model_version": "1.0.0",
+  "model_type": "isolation_forest",
+  "training_date": "2024-01-01",
+  "performance_metrics": {
+    "accuracy": 0.95,
+    "false_positive_rate": 0.05
+  }
+}

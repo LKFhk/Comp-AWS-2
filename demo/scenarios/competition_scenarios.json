@@ -1,0 +1,24 @@
+{
+  "fraud_detection_demo": {
+    "name": "Real-time Fraud Detection",
+    "description": "Demonstrate ML-powered fraud detection with 90% false positive reduction",
+    "duration_minutes": 5,
+    "data_file": "demo/data/synthetic_transactions.json",
+    "expected_outcomes": {
+      "fraud_detected": 50,
+      "false_positives": 5,
+      "processing_time_seconds": 30
+    }
+  },
+  "regulatory_compliance_demo": {
+    "name": "Automated Regulatory Compliance",
+    "description": "Show real-time regulatory monitoring and compliance assessment",
+    "duration_minutes": 3,
+    "data_file": "demo/data/regulatory_updates.json",
+    "expected_outcomes": {
+      "regulations_processed": 10,
+      "compliance_gaps_identified": 2,
+      "remediation_plans_generated": 2
+    }
+  }
+}

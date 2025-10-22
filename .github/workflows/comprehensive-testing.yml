@@ -1,0 +1,813 @@
+name: Comprehensive Testing Pipeline with AI and Quality Gates
+
+on:
+  push:
+    branches: [ main, develop, staging ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run nightly comprehensive tests at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_level:
+        description: 'Test level to run'
+        required: true
+        default: 'comprehensive'
+        type: choice
+        options:
+        - quick
+        - comprehensive
+        - ai_enhanced
+        - performance_only
+        - security_only
+
+env:
+  PYTHON_VERSION: '3.13'
+  NODE_VERSION: '18'
+  COVERAGE_THRESHOLD: 90
+  PERFORMANCE_REGRESSION_THRESHOLD: 5
+
+jobs:
+  # Pre-commit Quality Checks
+  pre-commit-checks:
+    name: Pre-commit Quality Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install pre-commit and dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pre-commit black flake8 mypy bandit safety
+        pip install -r requirements.txt
+    
+    - name: Cache pre-commit hooks
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pre-commit
+        key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+    
+    - name: Run pre-commit hooks
+      run: |
+        pre-commit run --all-files --show-diff-on-failure
+    
+    - name: Code formatting check (Black)
+      run: |
+        black --check --diff riskintel360/ tests/
+    
+    - name: Linting (Flake8)
+      run: |
+        flake8 riskintel360/ tests/ --statistics --tee --output-file=flake8-report.txt
+    
+    - name: Type checking (MyPy)
+      run: |
+        mypy riskintel360/ --html-report mypy-report
+    
+    - name: Security scan (Bandit)
+      run: |
+        bandit -r riskintel360/ -f json -o bandit-report.json || true
+    
+    - name: Dependency vulnerability check (Safety)
+      run: |
+        safety check --json --output safety-report.json || true
+    
+    - name: Upload quality reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: quality-reports
+        path: |
+          flake8-report.txt
+          mypy-report/
+          bandit-report.json
+          safety-report.json
+
+  # AI-Powered Test Generation and Analysis
+  ai-test-generation:
+    name: AI Test Generation and Coverage Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: pre-commit-checks
+    if: github.event.inputs.test_level == 'ai_enhanced' || github.event.inputs.test_level == 'comprehensive' || github.event.inputs.test_level == ''
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_riskintel360
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio pytest-cov coverage
+    
+    - name: Run AI test generation and analysis
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_riskintel360
+        REDIS_URL: redis://localhost:6379/0
+        ENVIRONMENT: testing
+      run: |
+        python tests/ai_test_generator_enhanced.py
+    
+    - name: Run generated tests
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_riskintel360
+        REDIS_URL: redis://localhost:6379/0
+        ENVIRONMENT: testing
+      run: |
+        # Run AI-generated edge case tests if they exist
+        if [ -f "tests/test_ai_generated_edge_cases.py" ]; then
+          pytest tests/test_ai_generated_edge_cases.py -v --tb=short
+        fi
+        
+        # Run AI-generated security tests if they exist
+        if [ -f "tests/test_ai_generated_security.py" ]; then
+          pytest tests/test_ai_generated_security.py -v --tb=short
+        fi
+    
+    - name: Upload AI test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: ai-test-results
+        path: |
+          tests/test_ai_generated_*.py
+          ai-test-report.json
+
+  # Comprehensive Unit and Integration Tests
+  comprehensive-tests:
+    name: Comprehensive Backend Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: pre-commit-checks
+    
+    strategy:
+      matrix:
+        test-type: [unit, integration, agents, api]
+        python-version: ['3.13']
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_riskintel360
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio pytest-cov pytest-xdist pytest-mock
+    
+    - name: Run ${{ matrix.test-type }} tests
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_riskintel360
+        REDIS_URL: redis://localhost:6379/0
+        ENVIRONMENT: testing
+        AWS_ACCESS_KEY_ID: test-key
+        AWS_SECRET_ACCESS_KEY: test-secret
+        AWS_DEFAULT_REGION: us-east-1
+      run: |
+        case "${{ matrix.test-type }}" in
+          "unit")
+            pytest tests/ -m "not integration and not e2e" --cov=riskintel360 --cov-report=xml --cov-report=html --cov-fail-under=${{ env.COVERAGE_THRESHOLD }} -v --tb=short --maxfail=5
+            ;;
+          "integration")
+            pytest tests/ -m integration --cov=riskintel360 --cov-report=xml -v --tb=short --maxfail=3
+            ;;
+          "agents")
+            pytest tests/test_*agent*.py -v --tb=short --cov=riskintel360.agents --cov-report=xml
+            ;;
+          "api")
+            pytest tests/test_api*.py tests/test_authentication*.py -v --tb=short --cov=riskintel360.api --cov-report=xml
+            ;;
+        esac
+    
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: ${{ matrix.test-type }}
+        name: ${{ matrix.test-type }}-coverage
+        fail_ci_if_error: true
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results-${{ matrix.test-type }}-${{ matrix.python-version }}
+        path: |
+          coverage.xml
+          htmlcov/
+          pytest-report.xml
+
+  # Frontend Testing Suite
+  frontend-tests:
+    name: Frontend Testing Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: pre-commit-checks
+    
+    strategy:
+      matrix:
+        test-type: [unit, e2e, accessibility, performance]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install frontend dependencies
+      working-directory: frontend
+      run: npm ci
+    
+    - name: Run ${{ matrix.test-type }} tests
+      working-directory: frontend
+      run: |
+        case "${{ matrix.test-type }}" in
+          "unit")
+            npm run test:coverage -- --watchAll=false --coverage --coverageReporters=lcov --coverageReporters=text
+            ;;
+          "e2e")
+            npm run build
+            npm run test:e2e -- --headless
+            ;;
+          "accessibility")
+            npm run test:a11y
+            ;;
+          "performance")
+            npm run test:performance
+            ;;
+        esac
+    
+    - name: Upload frontend coverage
+      if: matrix.test-type == 'unit'
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./frontend/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
+    
+    - name: Upload frontend test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: frontend-test-results-${{ matrix.test-type }}
+        path: |
+          frontend/coverage/
+          frontend/cypress/screenshots/
+          frontend/cypress/videos/
+          frontend/test-results/
+
+  # Performance and Load Testing
+  performance-tests:
+    name: Performance and Load Testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: [comprehensive-tests]
+    if: github.event.inputs.test_level == 'performance_only' || github.event.inputs.test_level == 'comprehensive' || github.event.inputs.test_level == ''
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_riskintel360
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install locust pytest-benchmark
+    
+    - name: Load performance baseline
+      run: |
+        # Load previous performance baseline if available
+        if [ -f "performance-baseline.json" ]; then
+          echo "Loading performance baseline..."
+          cat performance-baseline.json
+        else
+          echo "No performance baseline found, will create new one"
+        fi
+    
+    - name: Run performance tests
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_riskintel360
+        REDIS_URL: redis://localhost:6379/0
+        ENVIRONMENT: testing
+      run: |
+        # Run performance tests with benchmarking
+        pytest tests/performance/ -v --tb=short --benchmark-json=performance-results.json
+    
+    - name: Run load tests
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_riskintel360
+        REDIS_URL: redis://localhost:6379/0
+        ENVIRONMENT: testing
+      run: |
+        # Start the API server in background
+        uvicorn riskintel360.api.main:app --host 0.0.0.0 --port 8000 &
+        API_PID=$!
+        
+        # Wait for API to be ready
+        sleep 10
+        
+        # Run load tests
+        locust -f tests/load_tests.py --headless -u 50 -r 10 -t 300s --host=http://localhost:8000 --html=load-test-report.html
+        
+        # Stop API server
+        kill $API_PID
+    
+    - name: Analyze performance regression
+      run: |
+        python scripts/analyze_performance_regression.py --current performance-results.json --baseline performance-baseline.json --threshold ${{ env.PERFORMANCE_REGRESSION_THRESHOLD }}
+    
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: performance-test-results
+        path: |
+          performance-results.json
+          load-test-report.html
+          performance-regression-report.json
+
+  # Security Testing Suite
+  security-tests:
+    name: Security Testing Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: pre-commit-checks
+    if: github.event.inputs.test_level == 'security_only' || github.event.inputs.test_level == 'comprehensive' || github.event.inputs.test_level == ''
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit safety semgrep
+        pip install -r requirements.txt
+    
+    - name: Run Bandit security scan
+      run: |
+        bandit -r riskintel360/ -f json -o bandit-security-report.json
+        bandit -r riskintel360/ -f txt -o bandit-security-report.txt
+    
+    - name: Run Safety dependency check
+      run: |
+        safety check --json --output safety-security-report.json || true
+        safety check --output safety-security-report.txt || true
+    
+    - name: Run Semgrep security analysis
+      run: |
+        semgrep --config=auto --json --output=semgrep-security-report.json riskintel360/ || true
+    
+    - name: Run custom security tests
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_riskintel360
+        REDIS_URL: redis://localhost:6379/0
+        ENVIRONMENT: testing
+      run: |
+        # Run security-focused tests
+        pytest tests/ -m security -v --tb=short
+    
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-test-results
+        path: |
+          bandit-security-report.*
+          safety-security-report.*
+          semgrep-security-report.json
+
+  # End-to-End Integration Tests
+  e2e-integration-tests:
+    name: End-to-End Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    needs: [comprehensive-tests, frontend-tests]
+    if: github.event.inputs.test_level == 'comprehensive' || github.event.inputs.test_level == ''
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Create test environment
+      run: |
+        # Create comprehensive test environment
+        cat > .env.e2e << EOF
+        ENVIRONMENT=e2e_testing
+        DATABASE_URL=postgresql://test_user:test_password@test-postgres:5432/test_riskintel360
+        REDIS_URL=redis://:test_redis_password@test-redis:6379/0
+        AWS_ACCESS_KEY_ID=test-access-key
+        AWS_SECRET_ACCESS_KEY=test-secret-key
+        AWS_DEFAULT_REGION=us-east-1
+        BEDROCK_MOCK_MODE=true
+        EXTERNAL_API_MOCK_MODE=true
+        LOG_LEVEL=INFO
+        EOF
+    
+    - name: Build and start test environment
+      run: |
+        docker-compose -f docker-compose.test.yml build
+        docker-compose -f docker-compose.test.yml up -d test-postgres test-redis test-api test-frontend
+        
+        # Wait for services to be ready
+        echo "Waiting for services to be ready..."
+        sleep 60
+        
+        # Health checks
+        docker-compose -f docker-compose.test.yml exec -T test-api curl -f http://localhost:8000/health
+        curl -f http://localhost:3001 || echo "Frontend health check failed, continuing..."
+    
+    - name: Run comprehensive E2E tests
+      run: |
+        # Run all E2E test suites
+        docker-compose -f docker-compose.test.yml run --rm e2e-tests python -m pytest tests/e2e/ -v --tb=short --maxfail=5
+        
+        # Run user journey tests
+        docker-compose -f docker-compose.test.yml run --rm e2e-tests python -m pytest tests/user_journeys/ -v --tb=short --maxfail=3
+        
+        # Run complete integration validation
+        docker-compose -f docker-compose.test.yml run --rm e2e-tests python tests/test_complete_integration.py
+    
+    - name: Collect comprehensive logs
+      if: always()
+      run: |
+        mkdir -p e2e-test-results
+        docker-compose -f docker-compose.test.yml logs test-api > e2e-test-results/api-logs.txt
+        docker-compose -f docker-compose.test.yml logs test-frontend > e2e-test-results/frontend-logs.txt
+        docker-compose -f docker-compose.test.yml logs test-postgres > e2e-test-results/postgres-logs.txt
+        docker-compose -f docker-compose.test.yml logs test-redis > e2e-test-results/redis-logs.txt
+    
+    - name: Upload E2E test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: e2e-integration-test-results
+        path: e2e-test-results/
+    
+    - name: Cleanup test environment
+      if: always()
+      run: |
+        docker-compose -f docker-compose.test.yml down --volumes --remove-orphans
+
+  # Comprehensive Test Pipeline Execution
+  test-pipeline-execution:
+    name: Execute Comprehensive Test Pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: [ai-test-generation, comprehensive-tests, performance-tests, security-tests]
+    if: github.event.inputs.test_level == 'comprehensive' || github.event.inputs.test_level == ''
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_riskintel360
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio pytest-cov pyyaml
+    
+    - name: Download all test artifacts
+      uses: actions/download-artifact@v3
+    
+    - name: Execute comprehensive test pipeline
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_riskintel360
+        REDIS_URL: redis://localhost:6379/0
+        ENVIRONMENT: testing
+      run: |
+        python scripts/test_pipeline.py
+    
+    - name: Evaluate quality gates
+      run: |
+        # Check if all quality gates passed
+        if [ -f "test-pipeline-report.json" ]; then
+          python -c "
+          import json
+          with open('test-pipeline-report.json') as f:
+              report = json.load(f)
+          
+          failed_gates = [g for g in report.get('quality_gates', []) if g['status'] == 'failed' and g['blocking']]
+          
+          if failed_gates:
+              print('??QUALITY GATES FAILED:')
+              for gate in failed_gates:
+                  print(f'  - {gate[\"name\"]}: {gate[\"current_value\"]:.1f}% (required: {gate[\"threshold\"]:.1f}%)')
+              exit(1)
+          else:
+              print('??All quality gates passed!')
+          "
+        fi
+    
+    - name: Upload comprehensive test report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: comprehensive-test-pipeline-report
+        path: |
+          test-pipeline-report.json
+          coverage.json
+          coverage.xml
+          htmlcov/
+
+  # Test Results Summary and Quality Gate Evaluation
+  test-summary:
+    name: Test Results Summary and Quality Gates
+    runs-on: ubuntu-latest
+    needs: [test-pipeline-execution, e2e-integration-tests]
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Download all test artifacts
+      uses: actions/download-artifact@v3
+    
+    - name: Generate comprehensive test summary
+      run: |
+        echo "# RiskIntel360 Comprehensive Test Results Summary" > test-summary.md
+        echo "" >> test-summary.md
+        echo "## Test Execution Overview" >> test-summary.md
+        echo "- **Timestamp**: $(date -u)" >> test-summary.md
+        echo "- **Commit**: ${{ github.sha }}" >> test-summary.md
+        echo "- **Branch**: ${{ github.ref_name }}" >> test-summary.md
+        echo "- **Trigger**: ${{ github.event_name }}" >> test-summary.md
+        echo "- **Test Level**: ${{ github.event.inputs.test_level || 'comprehensive' }}" >> test-summary.md
+        echo "" >> test-summary.md
+        
+        # Job Results Summary
+        echo "## Job Results Summary" >> test-summary.md
+        echo "| Job | Status | Duration |" >> test-summary.md
+        echo "|-----|--------|----------|" >> test-summary.md
+        echo "| Pre-commit Checks | ${{ needs.pre-commit-checks.result || 'skipped' }} | - |" >> test-summary.md
+        echo "| AI Test Generation | ${{ needs.ai-test-generation.result || 'skipped' }} | - |" >> test-summary.md
+        echo "| Comprehensive Tests | ${{ needs.comprehensive-tests.result || 'skipped' }} | - |" >> test-summary.md
+        echo "| Frontend Tests | ${{ needs.frontend-tests.result || 'skipped' }} | - |" >> test-summary.md
+        echo "| Performance Tests | ${{ needs.performance-tests.result || 'skipped' }} | - |" >> test-summary.md
+        echo "| Security Tests | ${{ needs.security-tests.result || 'skipped' }} | - |" >> test-summary.md
+        echo "| E2E Integration | ${{ needs.e2e-integration-tests.result || 'skipped' }} | - |" >> test-summary.md
+        echo "| Test Pipeline | ${{ needs.test-pipeline-execution.result || 'skipped' }} | - |" >> test-summary.md
+        echo "" >> test-summary.md
+        
+        # Quality Gates Status
+        echo "## Quality Gates Status" >> test-summary.md
+        if [ -f "comprehensive-test-pipeline-report/test-pipeline-report.json" ]; then
+          python -c "
+          import json
+          with open('comprehensive-test-pipeline-report/test-pipeline-report.json') as f:
+              report = json.load(f)
+          
+          gates = report.get('quality_gates', [])
+          if gates:
+              print('| Gate | Threshold | Current | Status |')
+              print('|------|-----------|---------|--------|')
+              for gate in gates:
+                  status_icon = '?? if gate['status'] == 'passed' else '??
+                  blocking = ' (BLOCKING)' if gate.get('blocking', False) else ''
+                  print(f'| {gate[\"name\"]} | {gate[\"threshold\"]:.1f}% | {gate[\"current_value\"]:.1f}% | {status_icon} {gate[\"status\"]}{blocking} |')
+          " >> test-summary.md
+        else
+          echo "Quality gates report not available" >> test-summary.md
+        fi
+        echo "" >> test-summary.md
+        
+        # Overall Status
+        if [[ "${{ needs.test-pipeline-execution.result }}" == "success" && "${{ needs.e2e-integration-tests.result }}" == "success" ]]; then
+          echo "## ??Overall Status: PASSED" >> test-summary.md
+          echo "" >> test-summary.md
+          echo "All critical test suites and quality gates passed successfully. The RiskIntel360 platform is ready for deployment." >> test-summary.md
+        else
+          echo "## ??Overall Status: FAILED" >> test-summary.md
+          echo "" >> test-summary.md
+          echo "One or more critical test suites or quality gates failed. Please review the detailed results and fix issues before deployment." >> test-summary.md
+        fi
+        
+        echo "" >> test-summary.md
+        echo "## Test Coverage Summary" >> test-summary.md
+        echo "Detailed coverage reports are available in the test artifacts." >> test-summary.md
+        
+        echo "" >> test-summary.md
+        echo "## Recommendations" >> test-summary.md
+        if [ -f "comprehensive-test-pipeline-report/test-pipeline-report.json" ]; then
+          python -c "
+          import json
+          with open('comprehensive-test-pipeline-report/test-pipeline-report.json') as f:
+              report = json.load(f)
+          
+          recommendations = report.get('recommendations', [])
+          if recommendations:
+              for i, rec in enumerate(recommendations[:10], 1):
+                  print(f'{i}. {rec}')
+          else:
+              print('No specific recommendations at this time.')
+          " >> test-summary.md
+        fi
+        
+        cat test-summary.md
+    
+    - name: Upload test summary
+      uses: actions/upload-artifact@v3
+      with:
+        name: comprehensive-test-summary
+        path: test-summary.md
+    
+    - name: Comment PR with test results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const summary = fs.readFileSync('test-summary.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });
+
+  # Deployment Quality Gate
+  deployment-gate:
+    name: Deployment Quality Gate
+    runs-on: ubuntu-latest
+    needs: [test-summary]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    
+    steps:
+    - name: Evaluate deployment readiness
+      run: |
+        # Check if all critical tests passed
+        if [[ "${{ needs.test-pipeline-execution.result }}" == "success" && "${{ needs.e2e-integration-tests.result }}" == "success" ]]; then
+          echo "??All quality gates passed - Ready for deployment"
+          echo "DEPLOYMENT_READY=true" >> $GITHUB_ENV
+        else
+          echo "??Quality gates failed - Blocking deployment"
+          echo "DEPLOYMENT_READY=false" >> $GITHUB_ENV
+          exit 1
+        fi
+    
+    - name: Trigger deployment workflow
+      if: env.DEPLOYMENT_READY == 'true'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.actions.createWorkflowDispatch({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: 'ci-cd.yml',
+            ref: context.ref,
+            inputs: {
+              environment: context.ref === 'refs/heads/main' ? 'production' : 'development'
+            }
+          });

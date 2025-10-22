@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RiskIntel360 - Frontend Logs Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 24px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .controls {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #0d6efd;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #0b5ed7;
+        }
+        
+        .btn-success {
+            background: #198754;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #157347;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #bb2d3b;
+        }
+        
+        .stats {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .stat-card {
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #0d6efd;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-bottom: 4px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #212529;
+        }
+        
+        .logs-container {
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+            background: #1e1e1e;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+        }
+        
+        .log-entry {
+            padding: 8px;
+            margin-bottom: 4px;
+            border-left: 3px solid #6c757d;
+            background: rgba(255, 255, 255, 0.05);
+            color: #d4d4d4;
+            line-height: 1.5;
+        }
+        
+        .log-entry.debug { border-left-color: #6c757d; }
+        .log-entry.info { border-left-color: #0dcaf0; }
+        .log-entry.warn { border-left-color: #ffc107; }
+        .log-entry.error { border-left-color: #dc3545; }
+        .log-entry.critical { border-left-color: #8b0000; }
+        
+        .log-timestamp {
+            color: #888;
+        }
+        
+        .log-level {
+            font-weight: bold;
+            margin: 0 8px;
+        }
+        
+        .log-level.debug { color: #6c757d; }
+        .log-level.info { color: #0dcaf0; }
+        .log-level.warn { color: #ffc107; }
+        .log-level.error { color: #dc3545; }
+        .log-level.critical { color: #8b0000; }
+        
+        .log-context {
+            color: #4ec9b0;
+        }
+        
+        .log-data {
+            margin-top: 4px;
+            padding-left: 12px;
+            color: #ce9178;
+            font-size: 11px;
+        }
+        
+        .log-stack {
+            margin-top: 4px;
+            padding-left: 12px;
+            color: #f48771;
+            font-size: 10px;
+        }
+        
+        .no-logs {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Frontend Logs Viewer</h1>
+            <p>View and manage RiskIntel360 frontend application logs</p>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-primary" onclick="loadLogs()">🔄 Refresh</button>
+            <button class="btn btn-success" onclick="downloadLogs()">💾 Download JSON</button>
+            <button class="btn btn-danger" onclick="clearLogs()">🗑️ Clear Logs</button>
+            <span style="margin-left: auto; color: #6c757d; font-size: 14px;" id="lastUpdate"></span>
+        </div>
+        
+        <div class="stats" id="stats"></div>
+        
+        <div class="logs-container" id="logsContainer">
+            <div class="no-logs">No logs available. Make sure you've used the RiskIntel360 application first.</div>
+        </div>
+    </div>
+    
+    <script>
+        function loadLogs() {
+            const logsData = localStorage.getItem('riskintel360_current_logs');
+            
+            if (!logsData) {
+                document.getElementById('logsContainer').innerHTML = 
+                    '<div class="no-logs">No logs found in localStorage. Use the application to generate logs.</div>';
+                return;
+            }
+            
+            try {
+                const data = JSON.parse(logsData);
+                displayStats(data);
+                displayLogs(data.logs);
+                document.getElementById('lastUpdate').textContent = 
+                    `Last updated: ${new Date().toLocaleTimeString()}`;
+            } catch (error) {
+                document.getElementById('logsContainer').innerHTML = 
+                    `<div class="no-logs">Error parsing logs: ${error.message}</div>`;
+            }
+        }
+        
+        function displayStats(data) {
+            const stats = {
+                'Total Logs': data.logs.length,
+                'Debug': data.logs.filter(l => l.level === 'DEBUG').length,
+                'Info': data.logs.filter(l => l.level === 'INFO').length,
+                'Warnings': data.logs.filter(l => l.level === 'WARN').length,
+                'Errors': data.logs.filter(l => l.level === 'ERROR').length + 
+                         data.logs.filter(l => l.level === 'CRITICAL').length,
+                'Session': data.sessionId.split('_')[1]
+            };
+            
+            const statsHtml = Object.entries(stats).map(([label, value]) => `
+                <div class="stat-card">
+                    <div class="stat-label">${label}</div>
+                    <div class="stat-value">${value}</div>
+                </div>
+            `).join('');
+            
+            document.getElementById('stats').innerHTML = statsHtml;
+        }
+        
+        function displayLogs(logs) {
+            if (!logs || logs.length === 0) {
+                document.getElementById('logsContainer').innerHTML = 
+                    '<div class="no-logs">No log entries found.</div>';
+                return;
+            }
+            
+            const logsHtml = logs.map(log => {
+                const levelClass = log.level.toLowerCase();
+                let html = `
+                    <div class="log-entry ${levelClass}">
+                        <div>
+                            <span class="log-timestamp">${log.timestamp}</span>
+                            <span class="log-level ${levelClass}">[${log.level}]</span>
+                            ${log.context ? `<span class="log-context">[${log.context}]</span>` : ''}
+                            <span>${log.message}</span>
+                        </div>
+                `;
+                
+                if (log.data) {
+                    html += `<div class="log-data">${JSON.stringify(log.data, null, 2)}</div>`;
+                }
+                
+                if (log.stack) {
+                    html += `<div class="log-stack">${log.stack}</div>`;
+                }
+                
+                html += '</div>';
+                return html;
+            }).join('');
+            
+            document.getElementById('logsContainer').innerHTML = logsHtml;
+            
+            // Auto-scroll to bottom
+            const container = document.getElementById('logsContainer');
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function downloadLogs() {
+            const logsData = localStorage.getItem('riskintel360_current_logs');
+            if (!logsData) {
+                alert('No logs to download');
+                return;
+            }
+            
+            const data = JSON.parse(logsData);
+            const filename = `riskintel360_frontend_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            alert(`Logs downloaded as ${filename}`);
+        }
+        
+        function clearLogs() {
+            if (confirm('Are you sure you want to clear all logs?')) {
+                localStorage.removeItem('riskintel360_current_logs');
+                sessionStorage.removeItem('riskintel360_current_logs');
+                loadLogs();
+                alert('Logs cleared');
+            }
+        }
+        
+        // Auto-refresh every 5 seconds
+        setInterval(loadLogs, 5000);
+        
+        // Initial load
+        loadLogs();
+    </script>
+</body>
+</html>

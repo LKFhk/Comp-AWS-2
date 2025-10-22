@@ -1,0 +1,775 @@
+openapi: 3.0.3
+info:
+  title: RiskIntel360 Platform API
+  description: |
+    RiskIntel360 is an autonomous multi-agent business intelligence platform that leverages Amazon Bedrock Nova 
+    and AWS AI services to revolutionize enterprise market validation. The platform transforms traditional 
+    manual market research (taking weeks) into intelligent, automated workflows that deliver comprehensive 
+    business validation insights in under 2 hours.
+    
+    ## Key Features
+    - **Multi-Agent Architecture**: Six specialized AI agents working in coordination
+    - **Real-time Processing**: Complete validation workflows in under 2 hours
+    - **Enterprise Security**: OAuth 2.0 authentication with role-based access control
+    - **Scalable Infrastructure**: Auto-scaling from 3-50 instances based on demand
+    
+    ## Agent Types
+    - **Market Research Agent**: Market data aggregation and trend analysis
+    - **Competitive Intelligence Agent**: Competitor analysis and positioning assessment
+    - **Financial Validation Agent**: Revenue projections and investment analysis
+    - **Risk Assessment Agent**: Business risk evaluation and compliance analysis
+    - **Customer Intelligence Agent**: Customer behavior analysis and market demand validation
+    - **Synthesis & Recommendation Agent**: Cross-agent insight integration and strategic recommendations
+  version: 1.0.0
+  contact:
+    name: RiskIntel360 Platform Team
+    email: support@RiskIntel360.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.RiskIntel360.com/v1
+    description: Production server
+  - url: https://staging-api.RiskIntel360.com/v1
+    description: Staging server
+  - url: http://localhost:8000/api/v1
+    description: Local development server
+
+security:
+  - BearerAuth: []
+  - OAuth2: [read, write]
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the API and all connected services
+      tags:
+        - System
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /validations:
+    post:
+      summary: Create a new validation request
+      description: |
+        Initiates a new business validation workflow. The system will coordinate multiple AI agents
+        to analyze market conditions, competitive landscape, financial viability, risks, and customer intelligence.
+      tags:
+        - Validations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidationRequest'
+            examples:
+              startup_validation:
+                summary: Startup Market Validation
+                value:
+                  business_concept: "AI-powered personal finance management app"
+                  target_market: "Young professionals aged 25-35 in North America"
+                  analysis_scope: ["market", "competitive", "financial", "risk", "customer"]
+                  priority: "high"
+                  custom_parameters:
+                    industry_focus: "fintech"
+                    geographic_scope: "north_america"
+                    timeline: "12_months"
+      responses:
+        '201':
+          description: Validation request created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResponse'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: List validation requests
+      description: Retrieve a paginated list of validation requests for the authenticated user
+      tags:
+        - Validations
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          description: Filter by validation status
+          schema:
+            type: string
+            enum: [pending, in_progress, completed, failed]
+        - name: priority
+          in: query
+          description: Filter by priority level
+          schema:
+            type: string
+            enum: [low, medium, high, urgent]
+      responses:
+        '200':
+          description: List of validation requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationListResponse'
+
+  /validations/{validation_id}:
+    get:
+      summary: Get validation details
+      description: Retrieve detailed information about a specific validation request and its results
+      tags:
+        - Validations
+      parameters:
+        - name: validation_id
+          in: path
+          required: true
+          description: Unique identifier for the validation request
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Validation details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResult'
+        '404':
+          description: Validation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Cancel validation request
+      description: Cancel a pending or in-progress validation request
+      tags:
+        - Validations
+      parameters:
+        - name: validation_id
+          in: path
+          required: true
+          description: Unique identifier for the validation request
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Validation cancelled successfully
+        '404':
+          description: Validation not found
+        '409':
+          description: Validation cannot be cancelled (already completed)
+
+  /validations/{validation_id}/status:
+    get:
+      summary: Get validation status
+      description: Get real-time status updates for a validation request including agent progress
+      tags:
+        - Validations
+      parameters:
+        - name: validation_id
+          in: path
+          required: true
+          description: Unique identifier for the validation request
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Validation status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationStatus'
+
+  /validations/{validation_id}/results:
+    get:
+      summary: Get validation results
+      description: Retrieve comprehensive results from all agents for a completed validation
+      tags:
+        - Validations
+      parameters:
+        - name: validation_id
+          in: path
+          required: true
+          description: Unique identifier for the validation request
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          description: Response format
+          schema:
+            type: string
+            enum: [json, pdf, excel]
+            default: json
+      responses:
+        '200':
+          description: Validation results retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResult'
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /agents:
+    get:
+      summary: List available agents
+      description: Get information about all available AI agents and their capabilities
+      tags:
+        - Agents
+      responses:
+        '200':
+          description: List of available agents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AgentInfo'
+
+  /agents/{agent_id}/status:
+    get:
+      summary: Get agent status
+      description: Get current status and performance metrics for a specific agent
+      tags:
+        - Agents
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          description: Unique identifier for the agent
+          schema:
+            type: string
+            enum: [market_research, competitive_intelligence, financial_validation, risk_assessment, customer_intelligence, synthesis]
+      responses:
+        '200':
+          description: Agent status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentStatus'
+
+  /visualizations/{validation_id}/market-analysis:
+    get:
+      summary: Get market analysis visualization data
+      description: Retrieve data for market analysis charts and graphs
+      tags:
+        - Visualizations
+      parameters:
+        - name: validation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Market analysis visualization data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketAnalysisVisualization'
+
+  /visualizations/{validation_id}/competitive-analysis:
+    get:
+      summary: Get competitive analysis visualization data
+      description: Retrieve data for competitive positioning charts and competitor comparison
+      tags:
+        - Visualizations
+      parameters:
+        - name: validation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Competitive analysis visualization data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompetitiveAnalysisVisualization'
+
+  /auth/login:
+    post:
+      summary: User authentication
+      description: Authenticate user with OAuth 2.0 credentials
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      summary: Refresh authentication token
+      description: Refresh an expired access token using a refresh token
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    OAuth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://auth.RiskIntel360.com/oauth/authorize
+          tokenUrl: https://auth.RiskIntel360.com/oauth/token
+          scopes:
+            read: Read access to validation data
+            write: Create and modify validation requests
+            admin: Administrative access
+
+  schemas:
+    ValidationRequest:
+      type: object
+      required:
+        - business_concept
+        - target_market
+        - analysis_scope
+      properties:
+        business_concept:
+          type: string
+          description: Description of the business concept to validate
+          example: "AI-powered personal finance management app"
+          minLength: 10
+          maxLength: 1000
+        target_market:
+          type: string
+          description: Target market description
+          example: "Young professionals aged 25-35 in North America"
+          minLength: 10
+          maxLength: 500
+        analysis_scope:
+          type: array
+          description: Types of analysis to perform
+          items:
+            type: string
+            enum: [market, competitive, financial, risk, customer]
+          minItems: 1
+          example: ["market", "competitive", "financial"]
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+          default: medium
+          description: Priority level for the validation request
+        deadline:
+          type: string
+          format: date-time
+          description: Optional deadline for completion
+        custom_parameters:
+          type: object
+          description: Additional parameters for customizing the analysis
+          additionalProperties: true
+          example:
+            industry_focus: "fintech"
+            geographic_scope: "north_america"
+
+    ValidationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the validation request
+        status:
+          type: string
+          enum: [pending, in_progress, completed, failed]
+          description: Current status of the validation
+        estimated_completion:
+          type: string
+          format: date-time
+          description: Estimated completion time
+        created_at:
+          type: string
+          format: date-time
+          description: When the validation was created
+        websocket_url:
+          type: string
+          format: uri
+          description: WebSocket URL for real-time updates
+
+    ValidationResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [completed, failed]
+        overall_score:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Overall business viability score
+        confidence_level:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Confidence in the analysis results
+        market_analysis:
+          $ref: '#/components/schemas/MarketAnalysisResult'
+        competitive_analysis:
+          $ref: '#/components/schemas/CompetitiveAnalysisResult'
+        financial_analysis:
+          $ref: '#/components/schemas/FinancialAnalysisResult'
+        risk_analysis:
+          $ref: '#/components/schemas/RiskAnalysisResult'
+        customer_analysis:
+          $ref: '#/components/schemas/CustomerAnalysisResult'
+        strategic_recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recommendation'
+        generated_at:
+          type: string
+          format: date-time
+        processing_time:
+          type: number
+          description: Total processing time in seconds
+
+    MarketAnalysisResult:
+      type: object
+      properties:
+        market_size:
+          $ref: '#/components/schemas/MarketSize'
+        growth_trends:
+          type: array
+          items:
+            $ref: '#/components/schemas/Trend'
+        key_drivers:
+          type: array
+          items:
+            type: string
+        market_maturity:
+          type: string
+          enum: [emerging, growth, mature, declining]
+        entry_barriers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Barrier'
+        confidence_score:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    CompetitiveAnalysisResult:
+      type: object
+      properties:
+        direct_competitors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Competitor'
+        indirect_competitors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Competitor'
+        competitive_intensity:
+          type: string
+          enum: [low, medium, high, very_high]
+        market_positioning:
+          $ref: '#/components/schemas/PositioningMap'
+        competitive_advantages:
+          type: array
+          items:
+            type: string
+        threats:
+          type: array
+          items:
+            type: string
+        confidence_score:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    FinancialAnalysisResult:
+      type: object
+      properties:
+        revenue_projections:
+          $ref: '#/components/schemas/RevenueProjections'
+        cost_structure:
+          $ref: '#/components/schemas/CostStructure'
+        investment_requirements:
+          $ref: '#/components/schemas/InvestmentRequirements'
+        roi_analysis:
+          $ref: '#/components/schemas/ROIAnalysis'
+        break_even_analysis:
+          $ref: '#/components/schemas/BreakEvenAnalysis'
+        confidence_score:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    ValidationStatus:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, in_progress, completed, failed]
+        progress_percentage:
+          type: number
+          minimum: 0
+          maximum: 100
+        current_stage:
+          type: string
+          description: Current processing stage
+        agent_statuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentStatus'
+        estimated_completion:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AgentStatus:
+      type: object
+      properties:
+        agent_id:
+          type: string
+        agent_name:
+          type: string
+        status:
+          type: string
+          enum: [idle, running, completed, failed]
+        progress_percentage:
+          type: number
+          minimum: 0
+          maximum: 100
+        current_task:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        estimated_completion:
+          type: string
+          format: date-time
+        performance_metrics:
+          type: object
+          properties:
+            response_time_ms:
+              type: number
+            memory_usage_mb:
+              type: number
+            cpu_usage_percent:
+              type: number
+
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        services:
+          type: object
+          properties:
+            database:
+              $ref: '#/components/schemas/ServiceHealth'
+            redis:
+              $ref: '#/components/schemas/ServiceHealth'
+            bedrock:
+              $ref: '#/components/schemas/ServiceHealth'
+            agents:
+              $ref: '#/components/schemas/ServiceHealth'
+
+    ServiceHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        response_time_ms:
+          type: number
+        last_check:
+          type: string
+          format: date-time
+        error_message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error type
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+        timestamp:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+          description: Unique request identifier for tracking
+
+    # Additional schemas for completeness
+    MarketSize:
+      type: object
+      properties:
+        value:
+          type: number
+        currency:
+          type: string
+        unit:
+          type: string
+        year:
+          type: integer
+
+    Trend:
+      type: object
+      properties:
+        name:
+          type: string
+        direction:
+          type: string
+          enum: [increasing, decreasing, stable]
+        impact:
+          type: string
+          enum: [low, medium, high]
+        confidence:
+          type: number
+
+    Competitor:
+      type: object
+      properties:
+        name:
+          type: string
+        market_share:
+          type: number
+        strengths:
+          type: array
+          items:
+            type: string
+        weaknesses:
+          type: array
+          items:
+            type: string
+
+    Recommendation:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+        implementation_timeline:
+          type: string
+        expected_impact:
+          type: string
+
+tags:
+  - name: System
+    description: System health and status endpoints
+  - name: Validations
+    description: Business validation workflow management
+  - name: Agents
+    description: AI agent management and monitoring
+  - name: Visualizations
+    description: Data visualization and reporting
+  - name: Authentication
+    description: User authentication and authorization

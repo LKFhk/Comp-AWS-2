@@ -1,0 +1,35 @@
+{
+  "slides": [
+    {
+      "title": "RiskIntel360: AI-Powered Fintech Intelligence",
+      "content": "Transform manual financial risk analysis into intelligent automation"
+    },
+    {
+      "title": "Problem: Manual Financial Analysis",
+      "content": "Weeks of work, $50K-$200K costs, limited scalability"
+    },
+    {
+      "title": "Solution: Multi-Agent AI Platform",
+      "content": "5 specialized agents, 95% time reduction, 80% cost savings"
+    },
+    {
+      "title": "Live Demo: Fraud Detection",
+      "content": "Real-time ML-powered fraud detection with 90% false positive reduction"
+    },
+    {
+      "title": "Business Impact",
+      "content": "$20M+ annual value generation, scalable for all company sizes"
+    }
+  ],
+  "demo_scenarios": [
+    "fraud_detection_live",
+    "regulatory_compliance_automation",
+    "market_intelligence_generation"
+  ],
+  "metrics_dashboard": {
+    "fraud_prevention_value": "$10M+",
+    "compliance_cost_savings": "$5M+",
+    "time_reduction": "95%",
+    "cost_reduction": "80%"
+  }
+}

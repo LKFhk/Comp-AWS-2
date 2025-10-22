@@ -1,0 +1,55 @@
+# Docker Compose override for local development
+# This file is automatically loaded by docker-compose and overrides settings in docker-compose.yml
+
+version: '3.8'
+
+services:
+  # Development overrides for faster iteration
+  riskintel360-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      - .:/app:cached
+      - ./logs:/app/logs
+      - /app/__pycache__
+      - /app/.pytest_cache
+      - pip_cache:/root/.cache/pip
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+    command: >
+      sh -c "
+        echo 'Starting development server with hot-reload...' &&
+        uvicorn riskintel360.api.main:app 
+        --reload 
+        --host 0.0.0.0 
+        --port 8000 
+        --reload-dir /app/riskintel360 
+        --log-level debug
+      "
+
+  # PostgreSQL development optimizations
+  postgres:
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+      -c max_connections=100
+      -c shared_buffers=128MB
+      -c effective_cache_size=512MB
+      -c maintenance_work_mem=32MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=8MB
+      -c default_statistics_target=50
+      -c log_statement=all
+      -c log_duration=on
+
+
+
+volumes:
+  pip_cache:
+    driver: local
